@@ -1184,7 +1184,7 @@
     color:var(--text3); text-transform:uppercase; letter-spacing:.06em;
     border-bottom:0.5px solid var(--border2); background:var(--surface2);
   }
-  .vac-table { width:100%; border-collapse:collapse; font-size:13.8px; }
+  .vac-table { width:100%; border-collapse:collapse; font-size:13.8px; table-layout:fixed; }
   .vac-table th {
     text-align:left; padding:9px 12px; background:var(--surface2);
     color:var(--text3); font-size:12px; font-weight:700;
