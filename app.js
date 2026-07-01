@@ -463,9 +463,10 @@ function render() {
         +' onclick="event.stopPropagation()">';
       html += '<span class="sub-grid-cell" style="min-width:0;gap:6px;display:flex;align-items:center">';
       html += '<span class="section-name" style="color:'+secColor+'"'
-        +' ondblclick="startEditSecName(this,decodeURIComponent(\''+secKey+'\'))"'
+        +' onclick="event.stopPropagation()"'
+        +' ondblclick="event.stopPropagation();startEditSecName(this,decodeURIComponent(\''+secKey+'\'))"'
         +' title="Dobbeltklikk for \u00e5 redigere">'+esc(secName)+'</span>';
-      html += '<span class="sec-edit-hint" ondblclick="startEditSecName(this.previousElementSibling,decodeURIComponent(\''+secKey+'\'))">&#9998;</span>';
+      html += '<span class="sec-edit-hint" onclick="event.stopPropagation();startEditSecName(this.previousElementSibling,decodeURIComponent(\''+secKey+'\'))" title="Rediger navn">&#9998;</span>';
       if(selCount>0) html += '<span class="sec-badge sec-sel">'+selCount+' valgt</span>';
       html += '<span class="sec-badge sec-count">'+totalInSec+'</span>';
       html += '</span>';
@@ -492,9 +493,10 @@ function render() {
       +' style="width:14px;height:14px;cursor:pointer;accent-color:var(--accent);flex-shrink:0;margin-right:2px"'
       +' onclick="event.stopPropagation()">';
     html += '<span class="section-name" style="color:'+secColor+'"'
-      +' ondblclick="startEditSecName(this,decodeURIComponent(\''+secKey+'\'))"'
+      +' onclick="event.stopPropagation()"'
+      +' ondblclick="event.stopPropagation();startEditSecName(this,decodeURIComponent(\''+secKey+'\'))"'
       +' title="Dobbeltklikk for \u00e5 redigere">'+esc(secName)+'</span>';
-    html += '<span class="sec-edit-hint" ondblclick="startEditSecName(this.previousElementSibling,decodeURIComponent(\''+secKey+'\'))">&#9998;</span>';
+    html += '<span class="sec-edit-hint" onclick="event.stopPropagation();startEditSecName(this.previousElementSibling,decodeURIComponent(\''+secKey+'\'))" title="Rediger navn">&#9998;</span>';
     if(selCount>0) html += '<span class="sec-badge sec-sel">'+selCount+' valgt</span>';
     html += '<span class="sec-badge sec-count">'+totalInSec+'</span>';
     html += '<button class="sec-del-btn" onclick="event.stopPropagation();deleteSection(decodeURIComponent(\''+secKey+'\'))" title="Slett kapittel">\u00d7</button>';
