@@ -554,7 +554,15 @@ function render() {
               +' title="Slett underkapittel">\u00d7</button>';
             html += '</span>';
             html += '</div>';
-            if(uOpen) html += '<div>'+_renderSubGroups(uVis, secName, hue, today, usec)+'</div>';
+            if(uOpen){
+              html += '<div>'+_renderSubGroups(uVis, secName, hue, today, usec)+'</div>';
+              html += '<div class="undersec-add-row">';
+              html += '<button class="sub-add-btn"'
+                +' onclick="addTask('+_jsAttr(secName)+',\'\','+_jsAttr(usec)+')">+ Legg til post</button>';
+              html += '<button class="sub-add-btn"'
+                +' onclick="addSub('+_jsAttr(secName)+','+_jsAttr(usec)+')">+ Legg til delkapittel</button>';
+              html += '</div>';
+            }
             html += '</div>';
           });
         }
@@ -566,6 +574,10 @@ function render() {
     }
     html += '</div>';
   });
+
+  html += '<button class="add-section-btn" onclick="addSection()">'
+    +'<span style="font-size:18px;line-height:1;margin-top:-1px">+</span>'
+    +' Legg til nytt kapittel</button>';
 
   document.getElementById('list-area').innerHTML = html;
 
@@ -1065,20 +1077,17 @@ function setUndersecBudget(key, field, value) {
   scheduleAutoSave();
 }
 
+// Modal is reused for three actions: add chapter, add underkapittel, add delkapittel.
 var _pendingUkSec = null;
-function addUndersec(sec) {
-  _pendingUkSec = sec;
-  var existing = [];
-  tasks.filter(function(t){return t.section===sec;}).forEach(function(t){
-    if(existing.indexOf(t.undersec)<0) existing.push(t.undersec);
-  });
-  var m = sec.match(/^\d+/);
-  var prefix = m ? m[0] : '';
-  var n = existing.length + 1;
-  var defaultName = prefix ? (prefix + '.' + n) : ('Underkapittel ' + n);
+var _pendingUkUsec = null;
+var _ukMode = 'undersec'; // 'section' | 'undersec' | 'sub'
+
+function _openUkModal(title, hint, defaultName) {
   var inp = document.getElementById('ukmodal-input');
-  inp.value = defaultName;
-  document.getElementById('ukmodal-title').textContent = 'Nytt underkapittel i \"' + sec + '\"';
+  inp.value = defaultName || '';
+  document.getElementById('ukmodal-title').textContent = title;
+  var hintEl = document.getElementById('ukmodal-hint');
+  if (hintEl) hintEl.textContent = hint;
   document.getElementById('ukmodal-overlay').style.display = 'flex';
   setTimeout(function(){ inp.focus(); inp.select(); }, 50);
   inp.onkeydown = function(e) {
@@ -1087,31 +1096,104 @@ function addUndersec(sec) {
   };
 }
 
+/* Legg til nytt kapittel (seksjon) */
+function addSection() {
+  _ukMode = 'section';
+  _pendingUkSec = null;
+  _pendingUkUsec = null;
+  // Suggest next leading number
+  var maxNum = 0;
+  Object.keys(SECTIONS_DATA).forEach(function(s){
+    var m = s.match(/^\d+/);
+    if (m && parseInt(m[0],10) > maxNum) maxNum = parseInt(m[0],10);
+  });
+  _openUkModal('Nytt kapittel',
+    'Gi kapittelet et navn. Det opprettes tomt – du legger selv til underkapitler og poster.',
+    (maxNum + 1) + ' Nytt kapittel');
+}
+
+function addUndersec(sec) {
+  _ukMode = 'undersec';
+  _pendingUkSec = sec;
+  _pendingUkUsec = null;
+  var existing = [];
+  tasks.filter(function(t){return t.section===sec;}).forEach(function(t){
+    if(existing.indexOf(t.undersec)<0) existing.push(t.undersec);
+  });
+  var m = sec.match(/^\d+/);
+  var prefix = m ? m[0] : '';
+  var n = existing.length + 1;
+  var defaultName = prefix ? (prefix + '.' + n) : ('Underkapittel ' + n);
+  _openUkModal('Nytt underkapittel i \"' + sec + '\"',
+    'Gi underkapittelet et navn. Det opprettes tomt – du legger selv til poster etterpå.',
+    defaultName);
+}
+
+/* Legg til nytt delkapittel (sub-gruppe) inne i et underkapittel */
+function addSub(sec, usec) {
+  _ukMode = 'sub';
+  _pendingUkSec = sec;
+  _pendingUkUsec = usec || '';
+  _openUkModal('Nytt delkapittel',
+    'Gi delkapittelet et navn. Det opprettes med én tom post som du kan redigere.',
+    '');
+}
+
 function ukModalConfirm() {
   var name = (document.getElementById('ukmodal-input').value || '').trim();
+
+  if (_ukMode === 'section') {
+    if (!name) { ukModalCancel(); return; }
+    if (SECTIONS_DATA[name]) { alert('Det finnes allerede et kapittel med dette navnet.'); return; }
+    SECTIONS_DATA[name] = {};          // empty chapter – no default posts
+    sectionOpen[name] = true;
+    undersecOpen[name] = {};
+    ukModalCancel();
+    scheduleAutoSave();
+    render();
+    return;
+  }
+
   var sec = _pendingUkSec;
   if (!name || !sec) { ukModalCancel(); return; }
-  // Create complete new block
-  Object.entries(SECTIONS_DATA[sec]).forEach(function(e) {
-    var sub=e[0], items=e[1];
-    items.forEach(function(item) {
-      tasks.push({
-        id:idCounter++, excelId:item.id,
-        section:sec, undersec:name, sub:sub, name:item.name,
-        selected:false, frist:'', timer:'', status:'Ikke startet', link:'', comment:''
-      });
+
+  if (_ukMode === 'sub') {
+    // Add a new delkapittel (sub-group) with a single blank post
+    var us = _pendingUkUsec || '';
+    tasks.push({
+      id: idCounter++, excelId: '',
+      section: sec, undersec: us, sub: name, name: 'Ny post',
+      selected: false, frist: '', timer: '', status: 'Ikke startet', link: '', comment: '', eier: '', ansvar: '', fredagstatus: ''
     });
+    var newSubId = tasks[tasks.length-1].id;
+    ukModalCancel();
+    scheduleAutoSave();
+    render();
+    setTimeout(function(){ startEditName(newSubId); }, 50);
+    return;
+  }
+
+  // _ukMode === 'undersec' — create an EMPTY underkapittel (no copied tasks).
+  // Seed it with one blank post so it is visible and ready to edit.
+  tasks.push({
+    id: idCounter++, excelId: '',
+    section: sec, undersec: name, sub: '', name: 'Ny post',
+    selected: false, frist: '', timer: '', status: 'Ikke startet', link: '', comment: '', eier: '', ansvar: '', fredagstatus: ''
   });
+  var newTaskId = tasks[tasks.length-1].id;
   if(!undersecOpen[sec]) undersecOpen[sec] = {};
   undersecOpen[sec][name] = true;
   ukModalCancel();
   scheduleAutoSave();
   render();
+  setTimeout(function(){ startEditName(newTaskId); }, 50);
 }
 
 function ukModalCancel() {
   document.getElementById('ukmodal-overlay').style.display = 'none';
   _pendingUkSec = null;
+  _pendingUkUsec = null;
+  _ukMode = 'undersec';
 }
 
 function deleteUndersec(sec, usec) {
