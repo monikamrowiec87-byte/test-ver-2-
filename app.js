@@ -479,7 +479,9 @@ function render() {
           +   ' onclick="event.stopPropagation()" onkeydown="event.stopPropagation()" />';
       }
       html += '</span>';
-      html += '<span class="sub-grid-cell sub-grid-tail" style="grid-column:7 / -1"></span>';
+      html += '<span class="sub-grid-cell sub-grid-tail" style="grid-column:7 / -1;display:flex;justify-content:flex-end">';
+      html += '<button class="sec-del-btn" onclick="event.stopPropagation();deleteSection(decodeURIComponent(\''+secKey+'\'))" title="Slett kapittel">\u00d7</button>';
+      html += '</span>';
       html += '</div>';
     } else {
     html += '<div class="section-header" style="--sec-color:'+secColor+'" onclick="toggleSection(decodeURIComponent(\''+secKey+'\'))">';
@@ -495,6 +497,7 @@ function render() {
     html += '<span class="sec-edit-hint" ondblclick="startEditSecName(this.previousElementSibling,decodeURIComponent(\''+secKey+'\'))">&#9998;</span>';
     if(selCount>0) html += '<span class="sec-badge sec-sel">'+selCount+' valgt</span>';
     html += '<span class="sec-badge sec-count">'+totalInSec+'</span>';
+    html += '<button class="sec-del-btn" onclick="event.stopPropagation();deleteSection(decodeURIComponent(\''+secKey+'\'))" title="Slett kapittel">\u00d7</button>';
     html += '</div>';
     }
 
@@ -1194,6 +1197,30 @@ function ukModalCancel() {
   _pendingUkSec = null;
   _pendingUkUsec = null;
   _ukMode = 'undersec';
+}
+
+function deleteSection(sec) {
+  if (!sec || !SECTIONS_DATA[sec]) return;
+  var count = tasks.filter(function(t){ return t.section === sec; }).length;
+  var msg = count > 0
+    ? 'Slette kapittelet "' + sec + '" og alle ' + count + ' poster under? Dette kan ikke angres.'
+    : 'Slette det tomme kapittelet "' + sec + '"?';
+  if (!confirm(msg)) return;
+
+  // Remove all tasks in the section
+  tasks = tasks.filter(function(t){ return t.section !== sec; });
+  // Remove structure + UI state
+  delete SECTIONS_DATA[sec];
+  delete sectionOpen[sec];
+  delete undersecOpen[sec];
+  // Clean up any budget keys belonging to this section (keys look like "sec||usec||sub")
+  Object.keys(undersecBudget).forEach(function(k){
+    if (k.split('||')[0] === sec) delete undersecBudget[k];
+  });
+  try { localStorage.setItem('bl_budget', JSON.stringify(undersecBudget)); } catch(e) {}
+
+  scheduleAutoSave();
+  render();
 }
 
 function deleteUndersec(sec, usec) {
