@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bestillingsliste – Anbudsfase</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script src="exceljs.min.js"></script>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-top">
+    <span class="logo">Rådgiver</span>
+    <span class="project-name" id="project-name" contenteditable="true" spellcheck="false" title="Klikk for å redigere" onblur="localStorage.setItem('projectName',this.textContent)" style="outline:none;cursor:text;border-bottom:1px dashed transparent;" onmouseover="this.style.borderBottomColor='var(--border2)'" onmouseout="this.style.borderBottomColor='transparent'" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}">Bestillingsliste – Anbudsfase Totalentreprise</span>
+    <div class="header-actions">
+      <button class="sp-btn" id="sp-btn" onclick="spOpenModal()"><div class="sp-dot" id="sp-dot"></div><span id="sp-label">Delt lagring</span></button>
+      <button class="btn" onclick="exportToExcel()" title="Eksporter bestillingslista til Excel">&#128202; Eksporter</button>
+      <button class="btn btn-primary" onclick="saveData()">Lagre</button>
+    </div>
+  </div>
+  <div class="link-strip" id="link-strip"></div>
+  <div class="model-strip" id="model-strip"></div>
+  <div class="stats-bar" id="stats-bar"></div>
+  <div class="tabs">
+    <button class="tab active" id="tab-liste" onclick="switchTab('liste')">Bestillingsliste</button>
+    <button class="tab" id="tab-kanban" onclick="switchTab('kanban')">Lappeplan</button>
+    <button class="tab" id="tab-dashboard" onclick="switchTab('dashboard')">Dashboard</button>
+    <button class="tab" id="tab-ukeplan" onclick="switchTab('ukeplan')">Ukeplan</button>
+    <button class="tab" id="tab-ferie" onclick="switchTab('ferie')">Feriekalender</button>
+    
+  </div>
+</header>
+
+<main class="main">
+  <div id="panel-liste">
+    <div class="filter-bar">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input class="search-input" type="text" id="search" placeholder="Søk i bestillingslisten..." oninput="render()">
+      </div>
+      <button class="filter-btn" id="f-valgte" onclick="toggleFilter('valgte')">Vis kun valgte</button>
+      <button class="filter-btn" id="f-frist" onclick="toggleFilter('frist')">Utløpt frist</button>
+      <button class="filter-btn" id="f-pågår" onclick="toggleFilter('pågår')">Pågår</button>
+      <button class="filter-btn" id="f-skjulferdig" onclick="toggleFilter('skjulferdig')">Skjul utførte</button>
+    </div>
+    <div class="summary" id="summary-bar"></div>
+    <div id="hidden-cols-bar" style="display:none"></div>
+    <div class="col-headers" id="col-headers">
+      <span class="ch" data-col="drag"></span>
+      <span class="ch" data-col="cb"></span>
+      <span class="ch" data-col="post">Post<span class="ch-resize" data-col="post"></span></span>
+      <span class="ch" data-col="ansvar">Ansvar / grensesnitt<span class="ch-resize" data-col="ansvar"></span></span>
+      <span class="ch" data-col="frist">Frist<span class="ch-resize" data-col="frist"></span></span>
+      <span class="ch" data-col="timer">Timer (budsjett)<span class="ch-resize" data-col="timer"></span></span>
+      <span class="ch" data-col="status">Status<span class="ch-resize" data-col="status"></span></span>
+      <span class="ch" data-col="fredag">Fredagstatus<span class="ch-resize" data-col="fredag"></span></span>
+      <span class="ch" data-col="lenke">Lenke til leveranse<span class="ch-resize" data-col="lenke"></span></span>
+      <span class="ch" data-col="kommentar">Kommentar</span>
+    </div>
+    <div id="list-area"></div>
+  </div>
+  <div id="panel-kanban" style="display:none">
+    <div class="kanban-sub-tabs">
+      <button class="ksub-tab active" id="ksub-tidslinje" onclick="switchKanbanView('tidslinje')">Tidslinje</button>
+      <button class="ksub-tab" id="ksub-brett" onclick="switchKanbanView('brett')">Statusbrett</button>
+    </div>
+    <div id="kview-tidslinje">
+      <div class="tl-info" id="tl-info"></div>
+      <div class="tl-scroll-wrap">
+        <div id="tl-area"></div>
+      </div>
+    </div>
+    <div id="kview-brett" style="display:none">
+      <div class="kanban-wrap">
+        <div class="kanban" id="kanban-area"></div>
+      </div>
+    </div>
+  </div>
+  <div id="panel-dashboard" style="display:none">
+    <div class="dash-grid" id="dash-area"></div>
+  </div>
+  <div id="panel-ukeplan" style="display:none">
+    <div class="uk-toolbar">
+      <span class="uk-info" id="uk-info">Velg poster med frist for å vise dem i ukeplanen.</span>
+      <div class="uk-legend" id="uk-legend"></div>
+    </div>
+    <div class="uk-scroll">
+      <div class="uk-board" id="uk-board"></div>
+    </div>
+  </div>
+  
+  <div id="panel-ferie" style="display:none">
+    <div class="vac-toolbar">
+      <div class="vac-stats" id="vac-stats"></div>
+    </div>
+    <div class="vac-add-form">
+      <div class="vac-field">
+        <label>Navn</label>
+        <input type="text" id="vac-name" placeholder="Ditt navn" onkeydown="if(event.key==='Enter')vacAdd()">
+      </div>
+      <div class="vac-field">
+        <label>Fra dato</label>
+        <input type="date" id="vac-from">
+      </div>
+      <div class="vac-field">
+        <label>Til dato</label>
+        <input type="date" id="vac-to">
+      </div>
+      <div class="vac-field">
+        <label>Notat (valgfritt)</label>
+        <input type="text" id="vac-note" placeholder="Skiferie, kurs, foreldrepermisjon …" onkeydown="if(event.key==='Enter')vacAdd()">
+      </div>
+      <button class="vac-add-btn" onclick="vacAdd()">+ Legg til</button>
+    </div>
+    <div class="vac-timeline-wrap">
+      <div class="vac-timeline-controls">
+        <button class="vac-tl-btn" onclick="vacShiftStart(-14)">‹‹ 2 uker</button>
+        <button class="vac-tl-btn" onclick="vacShiftStart(-7)">‹ Uke</button>
+        <button class="vac-tl-btn" onclick="vacResetStart()">I dag</button>
+        <button class="vac-tl-btn" onclick="vacShiftStart(7)">Uke ›</button>
+        <button class="vac-tl-btn" onclick="vacShiftStart(14)">2 uker ››</button>
+        <span id="vac-tl-range" style="margin-left:auto;font-weight:600;color:var(--text)"></span>
+      </div>
+      <div id="vac-timeline"></div>
+    </div>
+    <div class="vac-list-wrap">
+      <div class="vac-list-title">Alle registrerte ferier</div>
+      <table class="vac-table">
+        <thead>
+          <tr>
+            <th class="vac-col-name">Navn</th>
+            <th class="vac-col-date">Fra</th>
+            <th class="vac-col-date">Til</th>
+            <th class="vac-col-days">Dager</th>
+            <th>Notat</th>
+            <th class="vac-col-actions"></th>
+          </tr>
+        </thead>
+        <tbody id="vac-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+<div id="toast" style="position:fixed;bottom:24px;right:24px;background:var(--text);color:var(--bg);font-size:13px;padding:10px 18px;border-radius:6px;opacity:0;transform:translateY(8px);transition:opacity .2s,transform .2s;pointer-events:none;z-index:999"></div>
+
+  
+
+  
+ 
+  
+
+<style>
+
+/* ── Risiko & Muligheter tab ────────────────────────────────── */
+
+
+</style>
+<script src="app.js"></script>
+
+
+<div class="link-overlay" id="link-overlay">
+  <div class="link-modal">
+    <h2 id="link-edit-title">Ny lenke</h2>
+    <p>Lim inn en lenke til f.eks. konkurransegrunnlaget, tegningsheftet eller andre dokumenter. Lenken åpnes i ny fane.</p>
+    <div class="link-field">
+      <label>Navn</label>
+      <input type="text" id="link-edit-label" placeholder="F.eks. Konkurransegrunnlag" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('link-edit-url').focus();}">
+    </div>
+    <div class="link-field">
+      <label>Lenke (URL)</label>
+      <input type="text" id="link-edit-url" placeholder="https://..." onkeydown="if(event.key==='Enter'){event.preventDefault();linkSaveEditor();}">
+    </div>
+    <div class="link-modal-actions">
+      <button class="link-del-btn" id="link-del-btn" onclick="linkDeleteCurrent()" style="display:none">Slett</button>
+      <span class="spacer"></span>
+      <button class="btn" onclick="linkCloseEditor()">Avbryt</button>
+      <button class="btn btn-primary" onclick="linkSaveEditor()">Lagre</button>
+    </div>
+  </div>
+</div>
+
+<div class="sp-overlay" id="sp-overlay">
+  <div class="sp-modal">
+    <h2>&#9729;&#65039; Delt lagring</h2>
+    <p>Koble til delt lagring ved å skrive inn API Key. Data synkroniseres automatisk mellom alle som er koblet til.</p>
+
+    <div id="sp-setup-area">
+      <div class="sp-field">
+        <label>API Key</label>
+        <input id="sp-api-key" type="password" placeholder="Skriv inn API Key" autocomplete="off">
+        <div class="sp-hint">API-n&#248;kkelen lagres bare for den aktive nettleser&#248;kten.</div>
+      </div>
+    </div>
+
+    <div class="sp-interval-row">
+      <span>Hent endringer hvert</span>
+      <input type="number" id="sp-interval" min="10" max="300" value="20">
+      <span>sekunder</span>
+    </div>
+
+    <div class="sp-status" id="sp-status">Ikke konfigurert. Fyll inn API Key for å aktivere delt lagring.</div>
+
+    <div class="sp-btns">
+      <button class="btn btn-primary" id="sp-connect-btn" onclick="spConnect()">Koble til</button>
+      <button class="btn" id="sp-push-btn"  onclick="spPush()" style="display:none">Last opp n&#229;</button>
+      <button class="btn" id="sp-pull-btn"  onclick="spPull()" style="display:none">Hent n&#229;</button>
+      <button class="btn" id="sp-disc-btn"  onclick="spDisconnect()" style="display:none">Koble fra</button>
+      <button class="btn" onclick="spCloseModal()">Lukk</button>
+    </div>
+
+
+  </div>
+</div>
+
+
+<div id="ukmodal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:800;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:0.5px solid var(--border2);border-radius:var(--radius);padding:28px 32px;width:380px;max-width:95vw;box-shadow:0 16px 48px rgba(0,0,0,.25)">
+    <h2 id="ukmodal-title" style="font-size:15px;font-weight:700;color:var(--text);margin:0 0 6px">Nytt underkapittel</h2>
+    <p style="font-size:12px;color:var(--text2);line-height:1.5;margin:0 0 16px">Gi underkapittelet et navn. Alle delkapitler og oppgaver fra kapitlet kopieres inn.</p>
+    <input id="ukmodal-input" type="text" placeholder="f.eks. 2.1 Eigårastunnel" style="width:100%;box-sizing:border-box;font-size:13px;padding:9px 11px;border:0.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);outline:none;font-family:inherit;margin-bottom:16px">
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary" onclick="ukModalConfirm()" style="flex:1">Legg til</button>
+      <button class="btn" onclick="ukModalCancel()" style="flex:1">Avbryt</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
