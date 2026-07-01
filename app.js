@@ -250,7 +250,7 @@ function loadSaved() {
 }
 
 function saveData() {
-  try { localStorage.setItem('bestillingsliste_v4', JSON.stringify({tasks, sectionOpen, undersecOpen, undersecBudget, SECTIONS_DATA, vacations, vacIdCounter, projectLinks, linkIdCounter, modelLinks, modelIdCounter, risikoEntries, muligheterEntries})); showToast('Lagret'); }
+  try { localStorage.setItem('bestillingsliste_v4', JSON.stringify({tasks, sectionOpen, undersecOpen, undersecBudget, SECTIONS_DATA, vacations, vacIdCounter, projectLinks, linkIdCounter, modelLinks, modelIdCounter, risikoEntries, muligheterEntries, bhQuestions, bhIdCounter})); showToast('Lagret'); }
   catch(e) { showToast('Kunne ikke lagre'); }
 }
 
@@ -375,7 +375,7 @@ function showToast(msg) {
 
 function switchTab(t) {
   activeTab = t;
-  ['liste','kanban','dashboard','ukeplan','ferie','risiko'].forEach(function(x) {
+  ['liste','kanban','dashboard','ukeplan','ferie','risiko','sporsmal'].forEach(function(x) {
     var te = document.getElementById('tab-'+x);
     var pe = document.getElementById('panel-'+x);
     if(te) te.classList.toggle('active', t===x);
@@ -386,6 +386,7 @@ function switchTab(t) {
   if (t==='ukeplan') renderUkeplan();
   if (t==='ferie') vacRender();
   if (t==='risiko') renderRisiko();
+  if (t==='sporsmal') renderBhq();
 }
 
 function toggleFilter(f) {
@@ -1687,7 +1688,7 @@ function vacRender() {
 }
 
 var autoSaveTimer;
-function scheduleAutoSave(){ clearTimeout(autoSaveTimer); autoSaveTimer=setTimeout(function(){ try{ localStorage.setItem('bestillingsliste_v4',JSON.stringify({tasks:tasks,sectionOpen:sectionOpen,undersecOpen:undersecOpen,undersecBudget:undersecBudget,SECTIONS_DATA:SECTIONS_DATA,vacations:vacations,vacIdCounter:vacIdCounter,projectLinks:projectLinks,linkIdCounter:linkIdCounter,modelLinks:modelLinks,modelIdCounter:modelIdCounter,risikoEntries:risikoEntries,muligheterEntries:muligheterEntries})); }catch(e){} },1200); }
+function scheduleAutoSave(){ clearTimeout(autoSaveTimer); autoSaveTimer=setTimeout(function(){ try{ localStorage.setItem('bestillingsliste_v4',JSON.stringify({tasks:tasks,sectionOpen:sectionOpen,undersecOpen:undersecOpen,undersecBudget:undersecBudget,SECTIONS_DATA:SECTIONS_DATA,vacations:vacations,vacIdCounter:vacIdCounter,projectLinks:projectLinks,linkIdCounter:linkIdCounter,modelLinks:modelLinks,modelIdCounter:modelIdCounter,risikoEntries:risikoEntries,muligheterEntries:muligheterEntries,bhQuestions:bhQuestions,bhIdCounter:bhIdCounter})); }catch(e){} },1200); }
 var _change=change;
 window.change=function(id,field,val){ _change(id,field,val); scheduleAutoSave(); };
 var _toggleSelect=toggleSelect;
@@ -1845,6 +1846,7 @@ async function spPush() {
       SECTIONS_DATA: SECTIONS_DATA, vacations: vacations, vacIdCounter: vacIdCounter,
       projectLinks: projectLinks, linkIdCounter: linkIdCounter,
       modelLinks: modelLinks, modelIdCounter: modelIdCounter,
+      bhQuestions: bhQuestions, bhIdCounter: bhIdCounter,
       ts: ts
     };
     var r = await fetch(spUrl(), {
@@ -1976,6 +1978,12 @@ function spMerge(remote) {
     modelIdCounter = remote.modelIdCounter || (Math.max.apply(null, [0].concat(modelLinks.map(function(l){return l.id||0;}))) + 1);
   }
 
+  // Restore questions to byggherre
+  if (remote.bhQuestions) {
+    bhQuestions = remote.bhQuestions;
+    bhIdCounter = remote.bhIdCounter || (bhQuestions.reduce(function(m,q){ return Math.max(m, q.id||0); }, 0) + 1);
+  }
+
   // Persist locally and re-render
   try {
     localStorage.setItem('bestillingsliste_v4', JSON.stringify({
@@ -1983,7 +1991,8 @@ function spMerge(remote) {
       undersecBudget: undersecBudget,
       SECTIONS_DATA: SECTIONS_DATA, vacations: vacations, vacIdCounter: vacIdCounter,
       projectLinks: projectLinks, linkIdCounter: linkIdCounter,
-      modelLinks: modelLinks, modelIdCounter: modelIdCounter
+      modelLinks: modelLinks, modelIdCounter: modelIdCounter,
+      bhQuestions: bhQuestions, bhIdCounter: bhIdCounter
     }));
   } catch(e) {}
   render();
@@ -1992,6 +2001,7 @@ function spMerge(remote) {
   if (activeTab === 'ferie') vacRender();
   if (activeTab === 'dashboard') renderDashboard();
   if (activeTab === 'ukeplan') renderUkeplan();
+  if (activeTab === 'sporsmal') renderBhq();
 }
 
 
@@ -2101,6 +2111,9 @@ var risikoIdCounter = 100;
 function loadRisikoFromSaved(data) {
   if (data.risikoEntries) risikoEntries = data.risikoEntries;
   if (data.muligheterEntries) muligheterEntries = data.muligheterEntries;
+  if (data.bhQuestions) bhQuestions = data.bhQuestions;
+  if (data.bhIdCounter) bhIdCounter = data.bhIdCounter;
+  else bhIdCounter = (bhQuestions.reduce(function(m,q){ return Math.max(m, q.id||0); }, 0) + 1);
 }
 
 function switchRisikoView(v) {
@@ -2261,6 +2274,61 @@ function risikoAdd(type){
   // scroll to new row
   var el = document.getElementById(type==='risiko'?'risiko-list':'mulighet-list');
   if(el) el.lastElementChild && el.lastElementChild.scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+/* ── Spørsmål til byggherre ────────────────────────────────── */
+var bhQuestions = [];       // [{id, tema, sentDate, svar}]
+var bhIdCounter = 1;
+
+function renderBhq() {
+  var tbody = document.getElementById('bhq-tbody');
+  if (!tbody) return;
+  var info = document.getElementById('bhq-info');
+  if (info) info.textContent = bhQuestions.length
+    ? (bhQuestions.length + (bhQuestions.length===1 ? ' spørsmål registrert' : ' spørsmål registrert'))
+    : 'Ingen spørsmål registrert ennå.';
+
+  if (bhQuestions.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="bhq-empty">Ingen spørsmål ennå. Klikk «+ Legg til spørsmål» for å starte.</td></tr>';
+    return;
+  }
+
+  var html = '';
+  bhQuestions.forEach(function(q, i) {
+    html += '<tr>';
+    html += '<td class="bhq-nr">' + (i+1) + '</td>';
+    html += '<td><textarea class="bhq-ta" placeholder="Hva gjelder spørsmålet?" onchange="bhqChange('+q.id+',\'tema\',this.value)">' + esc(q.tema) + '</textarea></td>';
+    html += '<td><input type="date" class="bhq-date" value="' + esc(q.sentDate) + '" onchange="bhqChange('+q.id+',\'sentDate\',this.value)"></td>';
+    html += '<td><textarea class="bhq-ta" placeholder="Svar fra byggherre …" onchange="bhqChange('+q.id+',\'svar\',this.value)">' + esc(q.svar) + '</textarea></td>';
+    html += '<td class="bhq-actions"><button class="bhq-del-btn" title="Slett spørsmål" onclick="bhqDelete('+q.id+')">\u2715</button></td>';
+    html += '</tr>';
+  });
+  tbody.innerHTML = html;
+}
+
+function bhqAdd() {
+  bhQuestions.push({ id: bhIdCounter++, tema:'', sentDate:'', svar:'' });
+  scheduleAutoSave();
+  renderBhq();
+  // Focus the new row's tema field
+  var tbody = document.getElementById('bhq-tbody');
+  if (tbody && tbody.lastElementChild) {
+    var ta = tbody.lastElementChild.querySelector('textarea');
+    if (ta) { ta.focus(); tbody.lastElementChild.scrollIntoView({behavior:'smooth',block:'center'}); }
+  }
+}
+
+function bhqChange(id, field, val) {
+  var q = bhQuestions.find(function(x){ return x.id===id; });
+  if (q) q[field] = val;
+  scheduleAutoSave();
+}
+
+function bhqDelete(id) {
+  if (!confirm('Slette dette spørsmålet?')) return;
+  bhQuestions = bhQuestions.filter(function(q){ return q.id!==id; });
+  scheduleAutoSave();
+  renderBhq();
 }
 
 // Hook into loadSaved

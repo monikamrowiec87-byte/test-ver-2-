@@ -31,6 +31,7 @@
     <button class="tab" id="tab-dashboard" onclick="switchTab('dashboard')">Dashboard</button>
     <button class="tab" id="tab-ukeplan" onclick="switchTab('ukeplan')">Ukeplan</button>
     <button class="tab" id="tab-ferie" onclick="switchTab('ferie')">Feriekalender</button>
+    <button class="tab" id="tab-sporsmal" onclick="switchTab('sporsmal')">Spørsmål til byggherre</button>
     
   </div>
 </header>
@@ -141,6 +142,27 @@
           </tr>
         </thead>
         <tbody id="vac-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="panel-sporsmal" style="display:none">
+    <div class="bhq-toolbar">
+      <span class="bhq-info" id="bhq-info"></span>
+      <button class="bhq-add-btn" onclick="bhqAdd()">+ Legg til spørsmål</button>
+    </div>
+    <div class="bhq-table-wrap">
+      <table class="bhq-table">
+        <thead>
+          <tr>
+            <th class="bhq-col-nr">Nr</th>
+            <th class="bhq-col-tema">Tema</th>
+            <th class="bhq-col-date">Sendt dato</th>
+            <th class="bhq-col-svar">Svar</th>
+            <th class="bhq-col-actions"></th>
+          </tr>
+        </thead>
+        <tbody id="bhq-tbody"></tbody>
       </table>
     </div>
   </div>
