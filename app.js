@@ -1701,6 +1701,14 @@ var spCfg              = null;
 var spTimer            = null;
 var spLastVer          = 0;
 var spLastHash         = "";
+// True when there are local changes not yet confirmed uploaded to shared storage.
+// Persisted so a page refresh does not let the server overwrite unsynced local edits.
+var _spDirty           = false;
+try { _spDirty = localStorage.getItem('bl_sp_dirty') === '1'; } catch(e) {}
+function _spSetDirty(v) {
+  _spDirty = v;
+  try { if (v) localStorage.setItem('bl_sp_dirty','1'); else localStorage.removeItem('bl_sp_dirty'); } catch(e) {}
+}
 
 
 
@@ -1770,6 +1778,7 @@ function spConnect() {
   var interval = parseInt(document.getElementById('sp-interval').value) || 20;
   if (!apiKey) { spSetStatus('Fyll inn API Key.', 'err'); return; }
   spCfg = { binId: binId, apiKey: apiKey, interval: interval };
+  _spSetDirty(false); // explicit connect: use server as baseline
   try { localStorage.setItem(SP_CFG_KEY, JSON.stringify({interval: interval})); } catch(e) {}
   try { localStorage.setItem(SP_API_KEY_KEY, apiKey); localStorage.setItem(SP_API_KEY_TS_KEY, Date.now().toString()); } catch(e) {}
   spSetConnected(true);
@@ -1849,6 +1858,7 @@ async function spPush() {
     spLastVer = (data.metadata || {}).version || spLastVer + 1;
     // Update hash so next pull doesn't re-merge our own data
     spLastHash = ts + '_' + tasks.length + '_' + vacations.length;
+    _spSetDirty(false);
     spSetDot('ok');
     spSetStatus('✓ Lastet opp ' + spTime(), 'ok');
   } catch(e) {
@@ -1871,6 +1881,13 @@ async function spPull() {
     if (!data.record) {
       spSetDot('err');
       spSetStatus('Tom respons fra server', 'err');
+      return;
+    }
+    // If we have local changes that haven't been confirmed uploaded, push them up
+    // now instead of letting the server overwrite them. This protects deletions,
+    // edits and column data (e.g. Ansvar) from being reverted on refresh/poll.
+    if (_spDirty) {
+      await spPush();
       return;
     }
     // Compare by timestamp + content size (more reliable than version)
@@ -1913,7 +1930,10 @@ function spMerge(remote) {
       timer: s.timer || '',
       status: s.status || 'Ikke startet',
       link: s.link || '',
-      comment: s.comment || ''
+      comment: s.comment || '',
+      ansvar: s.ansvar || '',
+      eier: s.eier || '',
+      fredagstatus: s.fredagstatus || ''
     };
   });
 
@@ -1984,6 +2004,7 @@ var _origScheduleAutoSave = scheduleAutoSave;
 scheduleAutoSave = function() {
   _origScheduleAutoSave();
   if (spCfg) {
+    _spSetDirty(true);
     clearTimeout(window._spDebounce);
     window._spDebounce = setTimeout(spPush, 2000);
   }

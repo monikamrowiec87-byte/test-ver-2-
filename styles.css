@@ -1079,7 +1079,7 @@
   .add-section-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px 16px;margin-top:14px;font-size:13.5px;font-weight:700;color:var(--accent);background:var(--surface);border:0.5px dashed var(--border2);border-radius:var(--radius,8px);cursor:pointer;transition:background .12s,border-color .12s;}
   .add-section-btn:hover{background:var(--blue-bg);border-color:var(--accent);}
   .undersec-add-row{display:flex;gap:8px;flex-wrap:wrap;padding:4px 12px 10px 40px;}
-  .sec-del-btn{margin-left:auto;flex-shrink:0;width:22px;height:22px;line-height:1;font-size:16px;border:none;background:transparent;color:var(--text3);border-radius:5px;cursor:pointer;opacity:0;transition:opacity .15s,background .12s,color .12s;}
+  .sec-del-btn{margin-left:auto;flex-shrink:0;width:22px;height:22px;line-height:1;font-size:16px;border:none;background:transparent;color:var(--text3);border-radius:5px;cursor:pointer;opacity:.45;transition:opacity .15s,background .12s,color .12s;}
   .section-header:hover .sec-del-btn,.section-header-grid:hover .sec-del-btn{opacity:1;}
   .sec-del-btn:hover{background:var(--red-bg);color:var(--red);}
   .sec-name-input,.sub-name-input{font-size:inherit;font-weight:inherit;color:inherit;background:transparent;border:none;border-bottom:1.5px solid var(--accent);outline:none;font-family:inherit;padding:1px 4px;min-width:80px;}
