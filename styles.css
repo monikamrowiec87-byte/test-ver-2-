@@ -1216,10 +1216,9 @@
   .vac-del-btn:hover { color:var(--red); }
   .vac-empty { padding:40px 20px; text-align:center; color:var(--text3); font-size:14.3px; }
   .vac-col-name   { width:170px; position:relative; }
-  .vac-resize { position:absolute; top:0; right:0; width:9px; height:100%; cursor:col-resize; user-select:none; }
-  .vac-resize::after { content:''; position:absolute; top:25%; right:3px; width:2px; height:50%; background:var(--border2); border-radius:2px; opacity:0; transition:opacity .12s; }
-  .vac-table th.vac-col-name:hover .vac-resize::after,
-  .vac-resize:hover::after { opacity:1; }
+  .vac-resize { position:absolute; top:0; right:-3px; width:14px; height:100%; cursor:col-resize; user-select:none; z-index:2; }
+  .vac-resize::after { content:''; position:absolute; top:20%; right:6px; width:3px; height:60%; background:var(--border2); border-radius:2px; opacity:.6; transition:opacity .12s,background .12s; }
+  .vac-resize:hover::after { opacity:1; background:var(--accent); }
   .vac-col-date   { width:140px; }
   .vac-col-days   { width:90px; }
   .vac-col-actions { width:40px; }

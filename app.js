@@ -1689,12 +1689,37 @@ function vacRender() {
 }
 
 // Adjustable width for the "Navn" column (stored per device)
+function _vacMeasureText(text, font) {
+  var c = _vacMeasureText._c || (_vacMeasureText._c = document.createElement('canvas'));
+  var ctx = c.getContext('2d');
+  ctx.font = font;
+  return ctx.measureText(text || '').width;
+}
+
 function vacApplyNameWidth() {
   var th = document.querySelector('.vac-table th.vac-col-name');
   if (!th) return;
-  var w = 170;
-  try { var s = localStorage.getItem('vac_name_col_w'); if (s) w = parseInt(s, 10) || 170; } catch(e) {}
+  var saved = null;
+  try { saved = localStorage.getItem('vac_name_col_w'); } catch(e) {}
+  var w;
+  if (saved) {
+    w = parseInt(saved, 10) || 170;
+  } else {
+    // No manual width chosen — auto-fit to the longest registered name
+    var fam = (getComputedStyle(document.body).fontFamily || 'sans-serif');
+    var font = '600 13.8px ' + fam;
+    var maxW = _vacMeasureText('Navn', font);
+    vacations.forEach(function(v){ var m = _vacMeasureText(v.name || '', font); if (m > maxW) maxW = m; });
+    // dot + gap + input padding + cell padding + slack
+    w = Math.round(maxW + 10 + 8 + 14 + 24 + 14);
+  }
+  w = Math.max(120, Math.min(600, w));
   th.style.width = w + 'px';
+}
+
+function vacResetNameWidth() {
+  try { localStorage.removeItem('vac_name_col_w'); } catch(e) {}
+  vacApplyNameWidth();
 }
 
 function vacStartResize(e) {
@@ -1706,7 +1731,7 @@ function vacStartResize(e) {
   document.body.style.cursor = 'col-resize';
   document.body.style.userSelect = 'none';
   function move(ev) {
-    var w = Math.max(90, Math.min(600, startW + (ev.clientX - startX)));
+    var w = Math.max(120, Math.min(600, startW + (ev.clientX - startX)));
     th.style.width = w + 'px';
   }
   function up() {
