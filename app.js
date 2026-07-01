@@ -1680,11 +1680,44 @@ function vacRender() {
   vacRenderStats();
   vacRenderTimeline();
   vacRenderList();
+  vacApplyNameWidth();
   // Prefill name field with last-used name on this device
   var nameField = document.getElementById('vac-name');
   if (nameField && !nameField.value) {
     try { var last = localStorage.getItem('vac_last_name'); if (last) nameField.value = last; } catch(e) {}
   }
+}
+
+// Adjustable width for the "Navn" column (stored per device)
+function vacApplyNameWidth() {
+  var th = document.querySelector('.vac-table th.vac-col-name');
+  if (!th) return;
+  var w = 170;
+  try { var s = localStorage.getItem('vac_name_col_w'); if (s) w = parseInt(s, 10) || 170; } catch(e) {}
+  th.style.width = w + 'px';
+}
+
+function vacStartResize(e) {
+  e.preventDefault(); e.stopPropagation();
+  var th = e.target.closest('th');
+  if (!th) return;
+  var startX = e.clientX;
+  var startW = th.getBoundingClientRect().width;
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+  function move(ev) {
+    var w = Math.max(90, Math.min(600, startW + (ev.clientX - startX)));
+    th.style.width = w + 'px';
+  }
+  function up() {
+    document.removeEventListener('mousemove', move);
+    document.removeEventListener('mouseup', up);
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    try { localStorage.setItem('vac_name_col_w', String(parseInt(th.style.width, 10) || 170)); } catch(e) {}
+  }
+  document.addEventListener('mousemove', move);
+  document.addEventListener('mouseup', up);
 }
 
 var autoSaveTimer;
